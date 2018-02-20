@@ -435,21 +435,6 @@ posdot_traj=blkdiagPdot*sol2;   % final velocity trajectory
 posddot_traj=blkdiagPddot*sol2; % final acceleration trajectory
 
 
-%DEBUGGING SECTION (NOT FOR ASSIGNMENT EVALUATION)
-%{
-MAPPING X PARAMETERS - USED FOR RUNNING CODE LINE BY LINE BETWEEN
-FUNCTIONS
-nsec = length(x)-1;
-pos_int = x(1);
-posdot_int = xdot_int;
-posddot_int = xddot_int;
-pos_fin = x(end);
-posdot_fin = xdot_fin;
-posdot_fin = xddot_fin;
-posddot_fin= xddot_fin;
-path_desired = pathx_desired;
-%}
-
 
 ```
 
@@ -505,3 +490,275 @@ Pddot=[Pddotint Pddot];
 #### Graph of Velocity and Acceleration
 
 <a href="https://drive.google.com/uc?export=view&id=1TD0vMuwdOnOdKbVJUX5QtQ3FxA9Z5xnQ"><img src="https://drive.google.com/uc?export=view&id=1TD0vMuwdOnOdKbVJUX5QtQ3FxA9Z5xnQ" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+## Robot Controller
+
+Two solutions are implemented in this section. The first one uses the Extended Kalman Filter developed
+earlier to localize the robot and uses the smoothed path generated in part b and a controller to provide a
+means of control to the robot.
+In the second solution, a linear (proportional) path following controller was implemented. The error
+between a desired heading and actual heading is calculated and this error is in turn multiplied by a linear
+coefficient, which is given as an angular velocity input to the robot. This does not use the EKF
+The main scripts that the algorithm uses, besides those described earlier is described below.
+The Route function computes a matrix Route that consists of all the x coordinates in the 1 st column, the y
+coordinates of the 2 nd column(already passed as argument - Rout), angle theta of vector of current node
+with that of the next node in the 3 rd column, derivative of x, y and theta in the 4 th , 5 th and 6 th columns
+respectively.
+
+```matlab
+function Route=compute_desired_angle_and_derivs(Rout,dt)
+Route=Rout;
+% set desired theta with the angle of vector from current to the next node
+Route(2:end,3)=atan2(Route(2:end,2)-Route(1:end-1,2),Route(2:end,1)-Route(1:end-1,1));
+Route(1,3)=Route(2,3);
+% set desired derivative of x
+Route(2:end,4)=( Route(2:end,1)-Route(1:end-1,1))/dt;
+%set desired derivative of y
+Route(2:end,5)=( Route(2:end,2)-Route(1:end-1,2))/dt;
+%set desired derivative of theta
+Route(2:end,6)=( Route(2:end,3)-Route(1:end-1,3))/dt;
+```
+
+The mycontroller function is called repetitively. A linear velocity is arbitrarily selected and the distance
+between the robots current location and the next point is calculated. Also calculates is the difference
+between of the angle between the next and current nodes. Error is calculated and is input to the bot
+proportionally as angular velocity by a linear coefficient.
+
+```matlab
+function [vx vz]=mycontroller(pos,goal,vmax)
+% choosee arbitary Linear Velocity
+vx=0.1;
+% distance between robot post and target
+dst=norm([pos(1:2)-goal(1:2)]);
+% angular difference between target and robots actual angle
+ang=acheck(atan2(goal(2)-pos(2),goal(1)-pos(1)),pos(3));
+% ye error according to robot frame
+ye=dst*sin(ang);
+% determine angular velocitywith multiply coefficient k2 to ye
+vz=5*ye;
+if (vz>vmax)
+vz=vmax;
+end
+if (vz<-vmax)
+vz=-vmax;
+end
+```
+
+## Gazebo Simuations of all of the above algorithms
+
+### Localization using Extended Kalman Filter
+
+When the turtle bot sets off in the beginning, there is clearly not much of an error in the estimation of the
+posterior.
+
+<a href="https://drive.google.com/uc?export=view&id=1nOGLaGAVGCmCKKNZLbVllAqmjAzhfg1J"><img src="https://drive.google.com/uc?export=view&id=1nOGLaGAVGCmCKKNZLbVllAqmjAzhfg1J" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+When the turtlebot turns right and moves towards the next room, the uncertainty in the robot pose
+increases and this is shown as the deviation of the robot path as shown in Figure 10. However, when the
+second landmark is in the vicinity of the turtle bot, it can be seen that the uncertainty decreases as shown
+in the plot in figure below
+
+<a href="https://drive.google.com/uc?export=view&id=1Y5Nh3W_TnEdn08dGysZUOxY192bNDYEp"><img src="https://drive.google.com/uc?export=view&id=1Y5Nh3W_TnEdn08dGysZUOxY192bNDYEp" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+Similar observations are found as the turtlebot leaves the second landmark and approaches the third
+landmark.
+
+
+
+<a href="https://drive.google.com/uc?export=view&id=1ZBmRjlmDJIiXXSfe5v81vEahEVNLxTcm"><img src="https://drive.google.com/uc?export=view&id=1ZBmRjlmDJIiXXSfe5v81vEahEVNLxTcm" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+###  ROBOT FOLLOWING ROBOT CONTROLLER Using smoothed Trajectory
+
+The smoothed path obtained was shown in the previous section. Its implementation using a controller to
+follow the smoothed part is shown in the next section.
+
+#### Starting the smoothed trajectory
+<a href="https://drive.google.com/uc?export=view&id=1zmwcgOHF8SKOUNd_0fgMUdVL0MOVu7UQ"><img src="https://drive.google.com/uc?export=view&id=1zmwcgOHF8SKOUNd_0fgMUdVL0MOVu7UQ" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+#### Intermediate times in the trajectory
+<a href="https://drive.google.com/uc?export=view&id=1kPWcNug6yYCCPPtTpJInSqjqnwQtdRDk"><img src="https://drive.google.com/uc?export=view&id=1kPWcNug6yYCCPPtTpJInSqjqnwQtdRDk" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+#### Halfway down the smoothed trajectory
+<a href="https://drive.google.com/uc?export=view&id=1ygBgK9vzyb1SPS19DOIzyhIMPwHnvZJF"><img src="https://drive.google.com/uc?export=view&id=1ygBgK9vzyb1SPS19DOIzyhIMPwHnvZJF" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+#### Turtlebot completes the smoothed trajectory
+<a href="https://drive.google.com/uc?export=view&id=1WAzdZYO6q46oUznyBg__HAuCXW0uRIIj"><img src="https://drive.google.com/uc?export=view&id=1WAzdZYO6q46oUznyBg__HAuCXW0uRIIj" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+## EXTRACTION OF COLOURED BALLS AS LANDMARKS [4][5]
+
+The aim of this section is about detecting certain coloured objects at the image and then find its real
+distance and relative angle in terms of view point. To detect certain object on the image, first we analyze
+the concerned objects in the simulation.
+Every color in the image can be presented by 3 component as R,G and B. As our analysis the blue ball’s
+pixels R band is all 0, Green band is all zero, but blue component is at about 110 intensity values. So to
+detect blue ball, we design a filter which filter the pixels whose red band less than 10, green band less than
+10 but blue bands is bigger than 100 intensive value. In matlab code we implement this filter with following
+codes;
+
+```matlab
+% looking for blue object.
+n=find(I(:,:,1)<10 & I(:,:,2)<10 & I(:,:,3)>100);
+B=zeros(size(I,1),size(I,2));
+B(n)=1;
+```
+Likewise, for the green ball, we follow the same procedure but just the differences is that the green
+component should be higher than 100 , other bands should be less than 10 and similarly with the red ball.
+For red ball, just red band should be higher than 100 but others should be less than 10. Green and red ball
+detection are implemented with following codes;
+
+```matlab
+% looking for blue object.
+n=find(I(:,:,1)<10 & I(:,:,2)<10 & I(:,:,3)>100);
+B=zeros(size(I,1),size(I,2));
+B(n)=1;
+```
+
+```matlab
+% looking for blue object.
+n=find(I(:,:,1)<10 & I(:,:,2)<10 & I(:,:,3)>100);
+B=zeros(size(I,1),size(I,2));
+B(n)=1;
+```
+
+The following figure shows how designed filters run for some example input images I.
+
+<a href="https://drive.google.com/uc?export=view&id=1F9dPOUfzcd8znxeApStCbN1RWW322EIA"><img src="https://drive.google.com/uc?export=view&id=1F9dPOUfzcd8znxeApStCbN1RWW322EIA" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+After filtering given input image, we need to do connected component analysis and figure out how many different object are there to do this, we used bwlabel(B) command. For given example there is already just one white component, so it does not produce different image but it could include some other objects too on the image. Bwlabel command basically figures how many components are there. Next, we calculate every single component’s area, major axis and center. To do this we used following matlab comamnd.
+
+```matlab
+
+```
+
+With this command we obtain labeled object center x and y, the maximum length of ball (diameter in this sense), and area to approve if the detected object is not too small like a noise.
+We implement that procedure for all the red, green and blue balls detection. To determine which filters
+results is prominent than the others, we selected the object which has maximum area. If the maximum
+area is less than the certain threshold we neglect this object. But if it is enough big as being a ball, then we
+calculate its distance and view-angle as Figure shown below.
+
+<a href="https://drive.google.com/uc?export=view&id=1lWs4liITi6-wtJOyY97zso1AOfn-2iI5"><img src="https://drive.google.com/uc?export=view&id=1lWs4liITi6-wtJOyY97zso1AOfn-2iI5" style="width: 500px; max-width: 100%; height: auto" title="Click for the larger version." /></a>
+
+To calculate how far the object is we used pinehole camera model. According to model at above figure, we can write folowing equation: 
+major axis on the image = focal length of camera * real major axis(diameter)/ distance
+In order to calculate the distance we used following code,
+
+```matlab
+ % major axis/ focal lenght = actual ball lenght(0.3)/ actual distance
+        Rr(Regions(n,1),1)=f*0.3/Regions(n,3);
+```
+
+Where Regions(n,3) means concerned object major axis on the screen, f means focal length of camera and 0.3 means real diameter of ball
+To calculate view angle of concerned object we used again pinehole camera model and this time we calculate what angle the object is according to center line. To do this we used following code;
+
+```matlab
+ % major axis/ focal lenght = actual ball lenght(0.3)/ actual distance
+        Rr(Regions(n,1),1)=f*0.3/Regions(n,3);
+```
+
+In this code cx means center of image on x axis. Our images has 640x480 resolution so it has 640 pixel width,
+according to given camera parameters the center of the camera view on x axis is 320.5. Regions(n,4) means
+the x component of detected object’s center. So cx-Regions(n,4) means how detected object is far from the
+center. And if we take the angle consist of cx-Regions(n,4) and f, we can obtain the view angle of detected
+object.
+
+#### Function myscanForLandmarks()
+
+```matlab
+function [A,Rr] = myscanForLandmarks(I,cinfo)
+%this function takes image and camera params and return landmark distance 
+%and relative angle for one blue green and red landmark.
+A=[nan;nan;nan];
+Rr=[nan;nan;nan];
+Regions=[];
+
+% looking for blue object.
+n=find(I(:,:,1)<10 & I(:,:,2)<10 & I(:,:,3)>100);
+B=zeros(size(I,1),size(I,2));
+B(n)=1;
+% find correspodings areas center major axis and total area
+statsB = regionprops(bwlabel(B),'Centroid','MajorAxisLength','Area');
+% Add findings to region variable
+for i=1:length(statsB)
+    Regions=[Regions;3 statsB(i).Area statsB(i).MajorAxisLength statsB(i).Centroid];
+end
+
+
+
+% looking for green object.
+n=find(I(:,:,1)<10 & I(:,:,2)>100 & I(:,:,3)<10);
+G=zeros(size(I,1),size(I,2));
+G(n)=1;
+% find correspodings areas center major axis and total area
+statsG = regionprops(bwlabel(G),'Centroid','MajorAxisLength','Area');
+for i=1:length(statsG)
+    Regions=[Regions;2 statsG(i).Area statsG(i).MajorAxisLength statsG(i).Centroid];
+end
+
+% looking for red object.
+n=find(I(:,:,1)>100 & I(:,:,2)<10 & I(:,:,3)<10);
+R=zeros(size(I,1),size(I,2));
+R(n)=1;
+% find correspodings areas center major axis and total area
+statsR = regionprops(bwlabel(R),'Centroid','MajorAxisLength','Area');
+for i=1:length(statsR)
+    Regions=[Regions;1 statsR(i).Area statsR(i).MajorAxisLength statsR(i).Centroid];
+end
+
+
+% if we find something
+if size(Regions,1)>0    
+
+    % find biggest object
+    [m n]=max(Regions(:,2));
+    
+    % if the biggest object is enough big
+    
+    if m>200
+
+        % find how far the biggest landmark is.
+        % focal length
+        f=cinfo.K(1);
+        % major axis/ focal lenght = actual ball lenght(0.3)/ actual distance
+        Rr(Regions(n,1),1)=f*0.3/Regions(n,3);
+        % center x 
+        cx=cinfo.K(3);
+        
+        % view angle= atan(cx-ox,focal lenght)
+        A(Regions(n,1),1)=atan2(cx-Regions(n,4),f);
+        
+    end
+end    
+
+[A Rr]; %remove semicolon to see landmark details
+n=0;
+n = find(~isnan(Rr));
+
+if n == 1
+    disp('red landmark detected')
+    
+elseif n == 2 
+    disp('green landmark detected')
+
+elseif n == 3
+    disp('blue landmark detected')
+    
+else
+    disp('no landmarks detected')
+end
+
+```
+## References
+
+[1] Lecture Slides, Introduction to Robotics, Prof. Wolfram Burgard, Albert-Ludwigs-Universität Freiburg
+
+[2] Lecture Slides, Fundamentals of Mobile Robotics, Prof. Reza Ghabcheloo, Tampere University of Technology
+
+[3] “Probabilistic Robotics”, Sebastian Thrun, Wolfram Burgard, Dieter Fox
+
+[4] Lecture 12 Slides, Computer Vision 1, Penn State College of Engineering
+
+[5] “Track and Follow and Object”, Mathworks Documentation,
+https://se.mathworks.com/help/robotics/examples/track-and-follow-an-object.html
+
+[6] “Offline and Online Trajectory Planning”, Zvi Shiller
+
